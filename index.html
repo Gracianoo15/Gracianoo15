@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mi primer videojuego</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#101827;color:#f8fafc;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:16px}
+  .wrap{width:min(900px,100%);text-align:center}
+  h1{font-size:clamp(24px,5vw,38px);margin:0 0 6px}
+  p{color:#cbd5e1;margin:6px 0 14px}
+  canvas{width:100%;max-width:800px;aspect-ratio:4/3;border:3px solid #334155;border-radius:16px;background:#bfe9ff;display:block;margin:auto;touch-action:none}
+  .controls{display:flex;justify-content:center;gap:12px;margin:14px auto;flex-wrap:wrap}
+  button{border:0;border-radius:14px;padding:13px 20px;background:#2563eb;color:white;font-size:18px;font-weight:700;min-width:66px;touch-action:manipulation}
+  button:active{transform:scale(.97);background:#1d4ed8}
+  #restart{background:#475569}
+  .hint{font-size:14px;color:#cbd5e1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⭐ Mi primer videojuego</h1>
+  <p>Recoge las 5 monedas y evita al enemigo rojo.</p>
+  <canvas id="game" width="800" height="600" aria-label="Videojuego"></canvas>
+  <div class="controls">
+    <button id="left" aria-label="Mover a la izquierda">⬅️</button>
+    <button id="up" aria-label="Saltar">⬆️ Saltar</button>
+    <button id="right" aria-label="Mover a la derecha">➡️</button>
+    <button id="restart">↻ Reiniciar</button>
+  </div>
+  <p class="hint">En computador: usa ← → para moverte, espacio para saltar y Enter para reiniciar. En celular: usa los botones.</p>
+  <p id="status" role="status">Monedas: 0 / 5</p>
+</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const status = document.getElementById('status');
+const keys = new Set();
+let player, coins, enemy, score, won, lost, cameraTick;
+
+function reset(){
+  player={x:65,y:450,w:38,h:48,vx:0,vy:0,onGround:false};
+  coins=[{x:170,y:470,taken:false},{x:300,y:390,taken:false},{x:450,y:470,taken:false},{x:575,y:350,taken:false},{x:700,y:465,taken:false}];
+  enemy={x:390,y:502,w:42,h:38,dir:1};
+  score=0;won=false;lost=false;cameraTick=0;
+  status.textContent='Monedas: 0 / 5';
+}
+const platforms=[
+  {x:0,y:540,w:800,h:60},
+  {x:115,y:485,w:130,h:18},
+  {x:260,y:410,w:125,h:18},
+  {x:420,y:485,w:120,h:18},
+  {x:530,y:370,w:130,h:18},
+  {x:660,y:480,w:110,h:18}
+];
+function overlap(a,b){return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y}
+function update(){
+ if(!won&&!lost){
+   player.vx=0;
+   if(keys.has('ArrowLeft')||keys.has('a')) player.vx=-4.2;
+   if(keys.has('ArrowRight')||keys.has('d')) player.vx=4.2;
+   player.x=Math.max(0,Math.min(canvas.width-player.w,player.x+player.vx));
+   player.vy+=0.48; player.y+=player.vy; player.onGround=false;
+   for(const p of platforms){
+     if(player.vy>=0 && player.x+player.w>p.x && player.x<p.x+p.w &&
+        player.y+player.h>=p.y && player.y+player.h-player.vy<=p.y){
+       player.y=p.y-player.h;player.vy=0;player.onGround=true;
+     }
+   }
+   if(player.y>canvas.height){lost=true;status.textContent='¡Ups! Caíste. Pulsa Reiniciar.'}
+   enemy.x+=enemy.dir*2.1;
+   if(enemy.x<320||enemy.x>475) enemy.dir*=-1;
+   for(const c of coins){
+     if(!c.taken && overlap(player,{x:c.x-13,y:c.y-13,w:26,h:26})){c.taken=true;score++;status.textContent=`Monedas: ${score} / 5`;}
+   }
+   if(overlap(player,enemy)){lost=true;status.textContent='¡Te atrapó el enemigo! Pulsa Reiniciar.'}
+   if(score===5){won=true;status.textContent='¡Ganaste, bro! 🎉 Pulsa Reiniciar para jugar otra vez.'}
+ }
+ draw();
+ requestAnimationFrame(update);
+}
+function draw(){
+ const sky=ctx.createLinearGradient(0,0,0,600);sky.addColorStop(0,'#8bd7ff');sky.addColorStop(1,'#e8f9ff');
+ ctx.fillStyle=sky;ctx.fillRect(0,0,800,600);
+ ctx.fillStyle='rgba(255,255,255,.85)';
+ for(const [x,y] of [[100,85],[340,120],[630,75]]){ctx.beginPath();ctx.arc(x,y,24,0,Math.PI*2);ctx.arc(x+25,y-8,29,0,Math.PI*2);ctx.arc(x+52,y,22,0,Math.PI*2);ctx.fill();}
+ for(const p of platforms){ctx.fillStyle='#8b5a2b';ctx.fillRect(p.x,p.y,p.w,p.h);ctx.fillStyle='#38a852';ctx.fillRect(p.x,p.y,p.w,7);}
+ for(const c of coins){if(c.taken)continue;ctx.fillStyle='#facc15';ctx.beginPath();ctx.arc(c.x,c.y,13,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#f59e0b';ctx.lineWidth=4;ctx.stroke();ctx.fillStyle='#fff4a3';ctx.beginPath();ctx.arc(c.x-4,c.y-4,4,0,Math.PI*2);ctx.fill();}
+ ctx.fillStyle='#ef4444';ctx.fillRect(enemy.x,enemy.y,enemy.w,enemy.h);ctx.fillStyle='white';ctx.fillRect(enemy.x+8,enemy.y+8,8,10);ctx.fillRect(enemy.x+26,enemy.y+8,8,10);ctx.fillStyle='#111827';ctx.fillRect(enemy.x+11,enemy.y+11,4,5);ctx.fillRect(enemy.x+29,enemy.y+11,4,5);
+ ctx.fillStyle='#2563eb';ctx.fillRect(player.x,player.y,player.w,player.h);
+ ctx.fillStyle='#f8c99b';ctx.fillRect(player.x+6,player.y+4,player.w-12,19);
+ ctx.fillStyle='#111827';ctx.fillRect(player.x+10,player.y+10,4,5);ctx.fillRect(player.x+24,player.y+10,4,5);
+ ctx.fillStyle='#1e40af';ctx.fillRect(player.x+4,player.y+31,11,17);ctx.fillRect(player.x+23,player.y+31,11,17);
+ if(won||lost){ctx.fillStyle='rgba(15,23,42,.72)';ctx.fillRect(130,220,540,120);ctx.fillStyle='white';ctx.textAlign='center';ctx.font='bold 36px system-ui';ctx.fillText(won?'¡LO LOGRASTE!':'¡INTÉNTALO OTRA VEZ!',400,270);ctx.font='20px system-ui';ctx.fillText(won?'Recogiste todas las monedas':'Pulsa Reiniciar para volver a jugar',400,308);}
+}
+function jump(){if(player && player.onGround && !won&&!lost){player.vy=-11.5;player.onGround=false;}}
+window.addEventListener('keydown',e=>{
+  if(['ArrowLeft','ArrowRight','ArrowUp',' '].includes(e.key))e.preventDefault();
+  keys.add(e.key);
+  if(e.key===' '||e.key==='ArrowUp')jump();
+  if(e.key==='Enter'&&(won||lost))reset();
+});
+window.addEventListener('keyup',e=>keys.delete(e.key));
+window.addEventListener('blur',()=>keys.clear());
+function holdButton(id,key){const b=document.getElementById(id);b.addEventListener('pointerdown',e=>{e.preventDefault();keys.add(key);});['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,()=>keys.delete(key)));}
+holdButton('left','ArrowLeft');holdButton('right','ArrowRight');
+document.getElementById('up').addEventListener('pointerdown',e=>{e.preventDefault();jump();});
+document.getElementById('restart').addEventListener('click',reset);
+reset();requestAnimationFrame(update);
+</script>
+</body>
+</html>
